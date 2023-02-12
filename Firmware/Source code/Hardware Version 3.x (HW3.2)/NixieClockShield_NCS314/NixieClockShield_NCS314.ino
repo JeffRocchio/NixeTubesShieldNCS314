@@ -150,11 +150,6 @@ GPS_DATE_TIME GPS_Date_Time;
 
 #endif // CLOSES: #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
 
-// Believe these to be for the IRremote only. So likely remove.
-int ModeButtonState = 0;
-int UpButtonState = 0;
-int DownButtonState = 0;
-
 boolean UD, LD; // DOTS control;
 
 byte data[12];
@@ -415,7 +410,6 @@ void setup()
 pinMode(ARDUINO_LED, OUTPUT);
 digitalWrite(ARDUINO_LED, LOW);
 Serial.println("Turning Off Arduino LED");
-delay(2000); // For debugging for now....
 }
 
 int rotator = 0; //index in array with RGB "rules" (increse by one on each 255 cycles)
@@ -439,59 +433,38 @@ void loop() {
     //Serial.println(F("Sync"));
   }
 
-#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-
-  MillsNow=millis();
-  if ((MillsNow - Last_Time_GPS_Sync) > GPS_Sync_Interval) // <!-----! 13.01.2022
-  {
-    //GPS_Sync_Interval = GPS_SYNC_INTERVAL; // 
-    //GPS_Sync_Flag = 0;
-    if (AttMsgWasShowed==false) 
+  /*  GPS device can only be used with clock models that use the ATmega Arduinos. So in the below we
+      are getting time/date info from the GPS and updating the real-time clock chip accordingly. */
+  #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+    MillsNow=millis();
+    if ((MillsNow - Last_Time_GPS_Sync) > GPS_Sync_Interval) // <!-----! 13.01.2022
     {
-      Serial.println(F("Attempt to sync with GPS."));
-      AttMsgWasShowed=true;
+      if (AttMsgWasShowed==false) 
+      {
+        Serial.println(F("Attempt to sync with GPS."));
+        AttMsgWasShowed=true;
+      }
+      GetDataFromSerial1();
+    } 
+    if ((MillsNow - Last_Time_GPS_Sync) > GPS_Sync_Interval + TIME_TO_TRY) 
+    {
+      Last_Time_GPS_Sync=MillsNow; //if it is not possible to synchronize within the allotted time TIME_TO_TRY, then we postpone attempts to the next time interval.
+      Serial.println(F("All attempts were unsuccessful."));
+      AttMsgWasShowed=false;
     }
-    GetDataFromSerial1();
-    //SyncWithGPS();
-  } 
-  if ((MillsNow - Last_Time_GPS_Sync) > GPS_Sync_Interval + TIME_TO_TRY) 
-  {
-    Last_Time_GPS_Sync=MillsNow; //if it is not possible to synchronize within the allotted time TIME_TO_TRY, then we postpone attempts to the next time interval.
-    //GPS_Sync_Flag = 1;   
-    //GPS_Sync_Interval = GPS_SYNC_INTERVAL; 
-    Serial.println(F("All attempts were unsuccessful."));
-    AttMsgWasShowed=false;
-  }
-  
-/* I think delete these lines. BUT am not sure about the fact that they are
-setting the ModeButtonStates. If removed then those are left undefined as
-the #else block will not get executed given that I am using the ATmega####.
-So may need remove the #else? I don't yet know what the ModeButtonState values
-do. Searching on ModeButtonState gives me the impression that these variables
-are only related to the IRremote function. That they represent the 'state' of
-the IR remote's button presses. So I it likely that it's safe to remove these
-variables, and all the places where they are used, entirely.
-  ModeButtonState = IRModeButton.checkButtonState(IRresults.value);
-  if (ModeButtonState == 1) Serial.println(F("Mode short"));
-  if (ModeButtonState == -1) Serial.println(F("Mode long...."));
+  #endif // CLOSES: GPS acquisition.
 
-  UpButtonState = IRUpButton.checkButtonState(IRresults.value);
-  if (UpButtonState == 1) Serial.println(F("Up short"));
-  if (UpButtonState == -1) Serial.println(F("Up long...."));
-
-  DownButtonState = IRDownButton.checkButtonState(IRresults.value);
-  if (DownButtonState == 1) Serial.println(F("Down short"));
-  if (DownButtonState == -1) Serial.println(F("Down long...."));
-*/
-
-#else
-  ModeButtonState=0;
-  UpButtonState=0;
-  DownButtonState=0;
-#endif
-
+  /*   2023-02-12: This is weird to me. playmusic(p) will play the current song, unless the value of 
+      p has been set to zero. Which it is set to zero here and there. But I can't work out what value
+      it has as we continually loop through here. It isn't constantly playing, so it must be set to
+      zer0 as the 'norm' for passes through here. I think *maybe* it is set to the default song
+      the 1st time through, right after the setup() routine has run. */
   p = playmusic(p);
 
+  /*  Change colors on the backlight LEDs under the tubes. (the call to
+      rotateFireWorks() will determine if this actually occurs or not
+      based on user config settings - e.g., if LEDs should be off or
+      only 1-set color). */
   if ((millis() - prevTime4FireWorks) > LEDsDelay)
   {
     rotateFireWorks(); //change color (by 1 step)
@@ -514,7 +487,7 @@ variables, and all the places where they are used, entirely.
     menuPosition = firstChild[menuPosition];
     blinkMask = blinkPattern[menuPosition];
   }
-  if ((setButton.clicks > 0) || (ModeButtonState == 1)) //short click
+  if (setButton.clicks > 0) //short click
   {
     modeChangedByUser = true;
     p = 0; //shut off music )))
@@ -578,7 +551,7 @@ variables, and all the places where they are used, entirely.
         (menuPosition != DateFormatIndex) &&
         (menuPosition != DateDayIndex)) value[menuPosition] = extractDigits(blinkMask);
   }
-  if ((setButton.clicks < 0) || (ModeButtonState == -1)) //long click
+   if (setButton.clicks < 0) //long click
   {
     tone1.play(1000, 100);
     if (!editMode)
@@ -615,7 +588,7 @@ variables, and all the places where they are used, entirely.
 
   if (upButton.clicks != 0) functionUpButton = upButton.clicks;
 
-  if ((upButton.clicks > 0) || (UpButtonState == 1))
+  if (upButton.clicks > 0)
   {
     modeChangedByUser = true;
     p = 0; //shut off music )))
@@ -643,7 +616,7 @@ variables, and all the places where they are used, entirely.
 
   if (downButton.clicks != 0) functionDownButton = downButton.clicks;
 
-  if ((downButton.clicks > 0) || (DownButtonState == 1))
+  if (downButton.clicks > 0)
   {
     modeChangedByUser = true;
     p = 0; //shut off music )))
@@ -681,7 +654,7 @@ variables, and all the places where they are used, entirely.
 
   if (!editMode)
   {
-    if ((upButton.clicks < 0) || (UpButtonState == -1))
+    if (upButton.clicks < 0)
     {
       tone1.play(1000, 100);
       RGBLedsOn = true;
@@ -689,7 +662,7 @@ variables, and all the places where they are used, entirely.
       Serial.println(F("RGB=on"));
       setLEDsFromEEPROM();
     }
-    if ((downButton.clicks < 0) || (DownButtonState == -1))
+    if (downButton.clicks < 0)
     {
       tone1.play(1000, 100);
       RGBLedsOn = false;
