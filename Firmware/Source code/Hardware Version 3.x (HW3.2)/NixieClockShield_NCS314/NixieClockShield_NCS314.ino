@@ -1,4 +1,43 @@
-const String FirmwareVersion = "019500";
+/******************************************************************************/
+//  Jeff Rocchio's Customizations.
+
+
+/*  2023-02-12_a
+        - Remove all code associated with the IR remote control. not only
+      because I will never use this, but also because it makes use of the
+      Arduino's internal LED, which prevents me from turning it off.
+      See documentation note CD-01 in CodeDocumentation.odt. */
+
+/*  2023-02-12_b
+        - Turn Arduino internal LED off (as it is so bright it shines up through
+      the board). NOTE: to make this work I had to bend the header pin that
+      connects to Arduino pin 13 over so that the clock signal connected to
+      that header pin doesn't come into the Arduino. See Documentation
+      note CD-01 in CodeDocumentation.odt. */
+
+
+
+// TO-DOs: --------------------------------------------------------------------
+
+/* GPS Validation always 'failing
+    In GPS_Parse_DateTime() it keeps falling
+    into the 'Validation failed' serial.print. Yet the prior prints do show
+    it is getting the time value from the GPS. So what's that about? */
+
+/* Date:
+    The thing where the euro date format shows first for a flash, then
+    it flips to the US date format. */
+
+/* Create Night Sleep Timer:
+    Create code to put the display tubes to sleep at night, and auto-wake up
+    in the morning. */
+
+/*******************************************************************************/
+
+
+
+const String FirmwareVersion = "020100"; // jrr 2023-02-12: Changing ver# for my updates. For now, Month & sequence #.
+//const String FirmwareVersion = "019500";
 //#define HardwareVersion "NCS314 for HW 3.x" 
 const char HardwareVersion[] PROGMEM = {"NCS314 for HW 3.x"};
 //Format                _X.XXX_
@@ -57,8 +96,7 @@ const char HardwareVersion[] PROGMEM = {"NCS314 for HW 3.x"};
 //25.05.2016
 
 //#define tubes8
-#define tubes6
-//#define tubes4
+#define tubes6 // NOTE: Per GFA/AFCH this is correct, even for 4-tube clocks.
 
 #include <SPI.h>
 #include <Wire.h>
@@ -71,7 +109,14 @@ const char HardwareVersion[] PROGMEM = {"NCS314 for HW 3.x"};
 #include <EEPROM.h>
 #include "doIndication314_HW3.x.h"
 #include <OneWire.h>
-//IR remote control /////////// START /////////////////////////////
+
+
+#define ARDUINO_LED 13 // 2023-02-12_b: Pin internal LED is wired to
+
+
+/* I believe this #IF block is here because you can only
+    use a GPS receiver if you have the ATmega#### arduino. */
+
 #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
 
 #define GPS_SYNC_INTERVAL 1800000 // in milliseconds
@@ -103,86 +148,12 @@ struct GPS_DATE_TIME
 
 GPS_DATE_TIME GPS_Date_Time;
 
-#include <IRremote.h>
-int RECV_PIN = 4;
-IRrecv irrecv(RECV_PIN);
-decode_results IRresults;
-// buttons codes for remote controller Sony RM-X151
-#define IR_BUTTON_UP_CODE 0x6621
-#define IR_BUTTON_DOWN_CODE 0x2621
-#define IR_BUTTON_MODE_CODE 0x7121
+#endif // CLOSES: #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
 
-class IRButtonState
-{
-  public:
-    int PAUSE_BETWEEN_PACKETS = 50;
-    int PACKETS_QTY_IN_LONG_PRESS = 18;
-
-  private:
-    bool Flag = 0;
-    byte CNT_packets = 0;
-    unsigned long lastPacketTime = 0;
-    bool START_TIMER = false;
-    int _buttonCode;
-
-  public: IRButtonState::IRButtonState(int buttonCode)
-    {
-      _buttonCode = buttonCode;
-    }
-
-  public: int IRButtonState::checkButtonState(int receivedCode)
-    {
-      if (((millis() - lastPacketTime) > PAUSE_BETWEEN_PACKETS) && (START_TIMER == true))
-      {
-        START_TIMER = false;
-        if (CNT_packets >= 2) {
-          Flag = 0;
-          CNT_packets = 0;
-          START_TIMER = false;
-          return 1;
-        }
-        else {
-          Flag = 0;
-          CNT_packets = 0;
-          return 0;
-        }
-      }
-      else
-      {
-        if (receivedCode == _buttonCode) { Flag = 1;}
-        else
-        {
-          if (!(Flag == 1)) {return 0;}
-          else
-          {
-            if (!(receivedCode == 0xFFFFFFFF)) {return 0;}
-          }
-        }
-        CNT_packets++;
-        lastPacketTime = millis();
-        START_TIMER = true;
-        if (CNT_packets >= PACKETS_QTY_IN_LONG_PRESS) {
-          Flag = 0;
-          CNT_packets = 0;
-          START_TIMER = false;
-          return -1;
-        }
-        else {return 0;}
-      }
-    }
-};
-
-IRButtonState IRModeButton(IR_BUTTON_MODE_CODE);
-IRButtonState IRUpButton(IR_BUTTON_UP_CODE);
-IRButtonState IRDownButton(IR_BUTTON_DOWN_CODE);
-#endif
-
-
+// Believe these to be for the IRremote only. So likely remove.
 int ModeButtonState = 0;
 int UpButtonState = 0;
 int DownButtonState = 0;
-
-//IR remote control /////////// START /////////////////////////////
 
 boolean UD, LD; // DOTS control;
 
@@ -190,13 +161,9 @@ byte data[12];
 byte addr[8];
 int celsius, fahrenheit;
 
-/*#define RedLedPin 9 //MCU WDM output for red LEDs 9-g
-#define GreenLedPin 6 //MCU WDM output for green LEDs 6-b
-#define BlueLedPin 3 //MCU WDM output for blue LEDs 3-r*/
 #define pinSet A0
 #define pinUp A2
 #define pinDown A1
-//#define pinBuzzer 2
 const byte pinBuzzer = 2; // pomenyal
 #define pinUpperDots 12 //HIGH value light a dots
 #define pinLowerDots 8 //HIGH value light a dots
@@ -389,10 +356,6 @@ void setup()
   //Serial.print(F("led lock="));
   //Serial.println(LEDsLock);
 
-/*  pinMode(RedLedPin, OUTPUT);
-  pinMode(GreenLedPin, OUTPUT);
-  pinMode(BlueLedPin, OUTPUT);*/
-
   tone1.begin(pinBuzzer);
   song = parseSong(song);
 
@@ -407,7 +370,7 @@ void setup()
   pinMode(pinSet,  INPUT_PULLUP);
   pinMode(pinUp,  INPUT_PULLUP);
   pinMode(pinDown,  INPUT_PULLUP);
-  ////////////////////////////
+
   pinMode(pinBuzzer, OUTPUT);
 
   //buttons objects inits
@@ -448,11 +411,11 @@ void setup()
   }
   setTime(RTC_hours, RTC_minutes, RTC_seconds, RTC_day, RTC_month, RTC_year);
 
-#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-  irrecv.blink13(false);
-  irrecv.enableIRIn(); // Start the receiver
-#endif
-
+// 2023-02-12_b: Turn Arduino internal LED off.
+pinMode(ARDUINO_LED, OUTPUT);
+digitalWrite(ARDUINO_LED, LOW);
+Serial.println("Turning Off Arduino LED");
+delay(2000); // For debugging for now....
 }
 
 int rotator = 0; //index in array with RGB "rules" (increse by one on each 255 cycles)
@@ -462,7 +425,6 @@ int GreenLight = 0;
 int BlueLight = 0;
 unsigned long prevTime = 0; // time of lase tube was lit
 unsigned long prevTime4FireWorks = 0; //time of last RGB changed
-//int minuteL=0; //младшая цифра минут
 
 
 /***************************************************************************************************************
@@ -501,12 +463,14 @@ void loop() {
     AttMsgWasShowed=false;
   }
   
-  IRresults.value = 0;
-  if (irrecv.decode(&IRresults)) {
-    Serial.println(IRresults.value, HEX);
-    irrecv.resume(); // Receive the next value
-  }
-
+/* I think delete these lines. BUT am not sure about the fact that they are
+setting the ModeButtonStates. If removed then those are left undefined as
+the #else block will not get executed given that I am using the ATmega####.
+So may need remove the #else? I don't yet know what the ModeButtonState values
+do. Searching on ModeButtonState gives me the impression that these variables
+are only related to the IRremote function. That they represent the 'state' of
+the IR remote's button presses. So I it likely that it's safe to remove these
+variables, and all the places where they are used, entirely.
   ModeButtonState = IRModeButton.checkButtonState(IRresults.value);
   if (ModeButtonState == 1) Serial.println(F("Mode short"));
   if (ModeButtonState == -1) Serial.println(F("Mode long...."));
@@ -518,6 +482,8 @@ void loop() {
   DownButtonState = IRDownButton.checkButtonState(IRresults.value);
   if (DownButtonState == 1) Serial.println(F("Down short"));
   if (DownButtonState == -1) Serial.println(F("Down long...."));
+*/
+
 #else
   ModeButtonState=0;
   UpButtonState=0;
@@ -1413,16 +1379,16 @@ bool GPS_Parse_DateTime()
       }
     }
   }
-  //Serial.print("dd: ");
+  Serial.print("dd: ");
   int dd = (GPS_Package[GPSDatePos] - 48) * 10 + GPS_Package[GPSDatePos + 1] - 48;
-  //Serial.println(dd);
+  Serial.println(dd);
   int MM = (GPS_Package[GPSDatePos + 2] - 48) * 10 + GPS_Package[GPSDatePos + 3] - 48;
-  //Serial.print("MM: ");
-  //Serial.println(MM);
+  Serial.print("MM: ");
+  Serial.println(MM);
   int yyyy = 2000 + (GPS_Package[GPSDatePos + 4] - 48) * 10 + GPS_Package[GPSDatePos + 5] - 48;
   
-  //Serial.print("yyyy: ");
-  //Serial.println(yyyy);
+  Serial.print("yyyy: ");
+  Serial.println(yyyy);
   //if ((hh<0) || (mm<0) || (ss<0) || (dd<0) || (MM<0) || (yyyy<0)) return false;
   if ( //!inRange( yyyy, 2018, 2038 ) ||
        !inRange( MM, 1, 12 ) ||
@@ -1469,7 +1435,7 @@ bool GPS_Parse_DateTime()
   GPS_Date_Time.GPS_mounth = MM;
   GPS_Date_Time.GPS_year = yyyy;
   GPS_Date_Time.GPS_Data_Parsed_time = millis();
-  //Serial.println("Precision TIME HAS BEEN ACCURED!!!!!!!!!");
+  Serial.println("Precision TIME HAS BEEN ACCURED!!!!!!!!!");
   //GPS_Package[0]=0x0A;
   return 1;
 }
@@ -1494,10 +1460,10 @@ uint8_t ControlCheckSum()
   else                  MessageCheckSum += (GPS_Package[i] - 0x30);
 
   if (MessageCheckSum != CheckSum) {
-    //Serial.println(F("wrong checksum"));  // wrong checksum
+    Serial.println(F("wrong checksum"));  // wrong checksum
     return 0;
   }
-  //Serial.println("Checksum is ok");
+  Serial.println("Checksum is ok");
   return 1; // all ok!
 }
 
@@ -1506,7 +1472,7 @@ boolean inRange( int no, int low, int high )
   if ( no < low || no > high )
   {
     Serial.println(F("Date or Time not in range"));
-    //Serial.println(String(no) + ":" + String (low) + "-" + String(high));
+    Serial.println(String(no) + ":" + String (low) + "-" + String(high));
     return false;
   }
   return true;
