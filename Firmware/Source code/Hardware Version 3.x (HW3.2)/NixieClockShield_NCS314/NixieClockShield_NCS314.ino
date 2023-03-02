@@ -1,9 +1,21 @@
 /******************************************************************************/
 //  Jeff Rocchio's Customizations.
 
+/*  2023-03-02_a
+        - Created ability for intensity of the RGB-LED under the dots column
+      to be less than the intensity of the LEDs under the tubes.
+      Did this because for me that LED shines too bright and interferes with
+      the appearence of the blinking dots.
+      NOTE-1: Since I have the 4-digit clock (HH:MM) I did not attempt to make
+      the code work for clocks with two dot columns.
+      NOTE-2: I hard-coded an intensity adjustment into my patch. There is
+      no provision for a user-configurable setting via the back panel
+      controls. To adjust the intensity you have to change the code
+      in the the rotateFireWorks_SK.ino module. See the statement: #define COLdim
+      See documentation note CD-03 in CodeDocumentation.odt. */
 
 /*  2023-02-12_a
-        - Remove all code associated with the IR remote control. not only
+        - Removed all code associated with the IR remote control. Not only
       because I will never use this, but also because it makes use of the
       Arduino's internal LED, which prevents me from turning it off.
       See documentation note CD-01 in CodeDocumentation.odt. */
