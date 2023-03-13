@@ -2,6 +2,8 @@ This repo contains my personal customizations for the Nixi-Tube clock I purchase
 
 The clock is their Arduino Shield Nixie IN-14 model. I purchased the kit and assembled it; and with the help of a woodworking friend made a case for it.
 
+<b>NOTE</b>: As of 3/13/2023 this clock does not support automatic Daylight Savings / Standard Time sensing and adjustment. To adjust for daylight savings if using the GPS receiver to sync time, you need to set the "timezone" ahead by one hour. levinedl's github has code for auto daylight savings adjustment, which was submitted as a pull request to gra-afch, tho they have ignored it. Sometime prior to the next shift back to Standard Time in the US I plan to review and incorporate levinedl's DST branch into my own code. See @ https://github.com/levinedl/NixeTubesShieldNCS314/tree/dst/Firmware/Source%20code/Hardware%20Version%203.x%20(HW3.2)/NixieClockShield_NCS314.
+
 Per original GRA & AFCH Readme:
 
 Sketch for Arduino UNO and Nixie Tubes Shield NCS314 and NCS312 by GRA &amp; AFCH
